@@ -81,7 +81,9 @@ def deletar_membros(request: Request, numero_registro = Body(...)):
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Erro ao deletar funcionarion {err}") 
 def vizualizar_membros(request:Request):
     try:
-        registros = get_collection_funcionarios(request).find()
+        registros = []
+        for i in get_collection_funcionarios(request).find():
+            registros.append(i)
         return registros
     except Exception as err:
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Erro ao procurar funcionario") 

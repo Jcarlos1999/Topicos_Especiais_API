@@ -25,7 +25,6 @@ async def login(request:Request, user:userLogin = Body(...)):
 async def vizualizar_membros(resquest:Request):
     try:
         registros = user_controller.vizualizar_membros(resquest)
-        registros = jsonable_encoder(registros)
         return HTTPException(status_code=status.HTTP_200_OK, detail=f"{registros}")
     except Exception as err:
         print(err)
