@@ -1,161 +1,90 @@
-import pymongo
+import os
+from fastapi.encoders import jsonable_encoder
+from datetime import datetime, date, timedelta
+from fastapi import Body, Request, HTTPException, status
+import jwt
+from pymongo import MongoClient
 
-# Conexão com o banco de dados MongoDB Atlas
-client = pymongo.MongoClient("mongodb+srv://root:root@cluster0.vssjehz.mongodb.net/")
-db = client.APP_C213
-collection = db.funcionarios
+from src.model.user import User, userLogin
 
-class Registro:
-    def __init__(self, numero_registro, nome, unidade, ativo_unidade, senha, beneficios, admin, permissoes):
-        self.numero_registro = numero_registro
-        self.nome = nome
-        self.unidade = unidade
-        self.ativo_unidade = ativo_unidade
-        self.senha = senha
-        self.beneficios = beneficios
-        self.admin = admin
-        self.permissoes = permissoes
+def get_collection_funcionarios(request:Request):
+    return request.app.database["funcionarios"]
 
-class CRUD:
-    def Criar_membros(self, numero_registro, nome, unidade, ativo_unidade, senha, beneficios, admin, permissoes):
-        if not collection.find_one({"numero_registro": numero_registro}):
-            registro = Registro(numero_registro, nome, unidade, ativo_unidade, senha, beneficios, admin, permissoes)
-            collection.insert_one(registro.__dict__)
-            print(f'Registro {numero_registro} criado com sucesso.')
+def criar_membros(request:Request, user: User = Body(...)):
+    try:   
+        if get_collection_funcionarios(request).find_one({"numero_registro": user.numero_registro}):
+            return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuario ja existe")
         else:
-            print(f'Registro {numero_registro} já existe.')
+            user = jsonable_encoder(user)
+            get_collection_funcionarios(request).insert_one(user)
+            return HTTPException(status_code=status.HTTP_201_CREATED, detail="Funcionario Criado")
+        
+    except Exception as err:
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Erro ao criar funcionario {err}")
 
-    def Dados_membros(self, numero_registro):
-        registro = collection.find_one({"numero_registro": numero_registro})
+def login(request: Request, user: userLogin = Body(...)):
+    try:
+        user_login = get_collection_funcionarios(request).find_one({"numero_registro": user.numero_registro})
+        if user_login is None:
+            return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Funcionario com registro {user.numero_registro} nao existe")
+        try:
+            token = jwt.encode({"test": f"{datetime.now() + timedelta(days=3)}", "sub": f"{user_login}"}, f"{os.environ.get('SECRET')}")
+        except jwt.ExpiredSignatureError:
+            HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Autorização invalid, faça login novamente")
+        
+
+        return HTTPException(status_code=status.HTTP_200_OK, detail=f"Login successful {user_login}")
+    except Exception as err:
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Erro ao logar")
+    
+
+def dados_membros(request: Request, numero_registro = Body(...)):
+    try:
+        registro = get_collection_funcionarios(request).find_one({"numero_registro": numero_registro})
         if registro:
-            print(f'Número de Registro: {registro["numero_registro"]}')
-            print(f'Nome: {registro["nome"]}')
-            print(f'Unidade: {registro["unidade"]}')
-            print(f'Ativo na Unidade: {registro["ativo_unidade"]}')
-            print(f'Senha: {registro["senha"]}')
-            print(f'Benefícios: {registro["beneficios"]}')
-            print(f'Admin: {registro["admin"]}')
-            print(f'Permissões: {registro["permissoes"]}')
+            return  registro
         else:
-            print(f'Registro {numero_registro} não encontrado.')
+            return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Funcionario nao existe")
+    except Exception as err:
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Erro ao procurar funcionarion {err}")
 
-    def Atualizar_membros(self, numero_registro, nome, unidade, ativo_unidade, senha, beneficios, admin, permissoes):
-        if collection.find_one({"numero_registro": numero_registro}):
-            collection.update_one(
-                {"numero_registro": numero_registro},
+def atualizar_membros(request: Request, user: User = Body(...)):
+    try: 
+        registro = get_collection_funcionarios(request).find_one({"numero_registro": user.numero_registro})
+        if registro:
+            get_collection_funcionarios(request).update_one(
+                {"numero_registro": user.numero_registro},
                 {
                     "$set": {
-                        "nome": nome,
-                        "unidade": unidade,
-                        "ativo_unidade": ativo_unidade,
-                        "senha": senha,
-                        "beneficios": beneficios,
-                        "admin": admin,
-                        "permissoes": permissoes
-                    }
+                    "nome": user.nome,
+                    "unidade": user.unidade,
+                    "ativo_unidade": user.ativo_unidade,
+                    "senha": user.senha,
+                    "beneficios": user.beneficios,
+                    "admin": user.admin,
+                    "permissoes": user.permissoes
+                }
                 }
             )
-            print(f'Registro {numero_registro} atualizado com sucesso.')
+            return  HTTPException(status_code=status.HTTP_200_OK, detail="Funcionario atualizado")
         else:
-            print(f'Registro {numero_registro} não encontrado.')
+            return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Funcionario nao existe")
+        
+    except Exception as err:
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Erro ao atualizar funcionarion"+err)
 
-    def Deletar_membros(self, numero_registro):
-        if collection.find_one({"numero_registro": numero_registro}):
-            collection.delete_one({"numero_registro": numero_registro})
-            print(f'Registro {numero_registro} deletado com sucesso.')
-        else:
-            print(f'Registro {numero_registro} não encontrado.')
+def deletar_membros(request: Request, numero_registro = Body(...)):
+    try: 
+        delete_result = get_collection_funcionarios(request).delete_one({"numero_registro": numero_registro})
+        return delete_result
+    except Exception as err:
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Erro ao deletar funcionarion {err}") 
+def vizualizar_membros(request:Request):
+    try:
+        registros = get_collection_funcionarios(request).find()
+        return registros
+    except Exception as err:
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Erro ao procurar funcionario") 
+            
 
-    def Vizualizar_membros(self):
-        registros = collection.find()
-        for registro in registros:
-            print(f'Número de Registro: {registro["numero_registro"]}')
-            print(f'Nome: {registro["nome"]}')
-            print(f'Unidade: {registro["unidade"]}')
-            print(f'Ativo na Unidade: {registro["ativo_unidade"]}')
-            print(f'Senha: {registro["senha"]}')
-            print(f'Benefícios: {registro["beneficios"]}')
-            print(f'Admin: {registro["admin"]}')
-            print(f'Permissões: {registro["permissoes"]}')
-            print('------')
-
-    def Dados_usuario(self, numero_registro, unidade, senha):
-        registro = collection.find_one({"numero_registro": numero_registro})
-        if registro:
-            if registro["unidade"] == unidade and registro["senha"] == senha:
-                print(f'Número de Registro: {registro["numero_registro"]}')
-                print(f'Nome: {registro["nome"]}')
-                print(f'Unidade: {registro["unidade"]}')
-                print(f'Ativo na Unidade: {registro["ativo_unidade"]}')
-                print(f'Benefícios: {registro["beneficios"]}')
-            else:
-                print("As informações fornecidas não correspondem ao registro.")
-        else:
-            print(f'Registro {numero_registro} não encontrado.')
-
-if __name__ == '__main__':
-    sistema = CRUD()
-
-    while True:
-        print("\nOpções:")
-        print("1. Criar Registro")
-        print("2. Ler Registro")
-        print("3. Atualizar Registro")
-        print("4. Deletar Registro")
-        print("5. Listar Registros")
-        print("6. Ler usuário por Registro, Unidade e Senha")
-        print("7. Sair")
-        escolha = input("Escolha uma opção: ")
-
-        if escolha == '1':
-            numero_registro = int(input("Número de Registro: "))
-            nome = input("Nome: ")
-            unidade = input("Unidade: ")
-            ativo_unidade = bool(input("Ativo na Unidade(true/false): "))
-            senha = input("Senha: ")
-            beneficios = input("Benefícios (separados por vírgula): ").split(',')
-            admin = bool(input("Admin(true/false): "))
-            if admin:
-                permissoes = input("Permissões (separadas por vírgula): ").split(',')
-            else:
-                permissoes = []
-            sistema.Criar_membros(numero_registro, nome, unidade, ativo_unidade, senha, beneficios, admin, permissoes)
-
-        elif escolha == '2':
-            numero_registro = int(input("Número de Registro: "))
-            sistema.Dados_membros(numero_registro)
-
-        elif escolha == '3':
-            numero_registro = int(input("Número de Registro: "))
-            if collection.find_one({"numero_registro": numero_registro}):
-                nome = input("Nome: ")
-                ativo_unidade = bool(input("Ativo na Unidade(true/false): "))
-                senha = input("Senha: ")
-                beneficios = input("Benefícios (separados por vírgula): ").split(',')
-                admin = bool(input("Admin(true/false): "))
-                if admin:
-                    permissoes = input("Permissões (separadas por vírgula): ").split(',')
-                else:
-                    permissoes = []
-                sistema.Atualizar_membros(numero_registro, nome, unidade, ativo_unidade, senha, beneficios, admin, permissoes)
-            else:
-                print(f'Registro {numero_registro} não encontrado.')
-
-        elif escolha == '4':
-            numero_registro = int(input("Número de Registro: "))
-            sistema.Deletar_membros(numero_registro)
-
-        elif escolha == '5':
-            sistema.Vizualizar_membros()
-
-        elif escolha == '6':
-            numero_registro = int(input("Número de Registro: "))
-            unidade = input("Unidade: ")
-            senha = input("Senha: ")
-            sistema.Dados_usuario(numero_registro, unidade, senha)
-
-        elif escolha == '7':
-            break
-
-        else:
-            print("Opção inválida. Tente novamente.")
+ 

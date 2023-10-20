@@ -2,22 +2,32 @@ import uuid
 from typing import Optional
 from pydantic import BaseModel, Field
 
+class userLogin(BaseModel):
+    numero_registro: str
+    senha: str
+
+    class Config:
+        allow_population_by_field_name = True
+        schema_extra = {
+            "examples": {
+                "numero_registro":"1234",
+                "senha": "4321"
+            }}
+
 class User(BaseModel):
     id: str = Field(default_factory=uuid.uuid4, alias="_id")
-    registro: str  # Especificar o tipo de dados do campo
-    nome: str
+    numero_registro: str 
     senha: str
     unidade: str
-    ativo_unidades: bool  # Exemplo de campo booleano
-    planos: dict  # Exemplo de campo dicionário
+    planos: dict  
     admin: bool
-    permissoes: Optional[dict]  # Campo opcional de tipo dicionário
+    permissoes: Optional[dict] 
 
     class Config:
         allow_population_by_field_name = True
         schema_extra = {
             "example": {
-                "registro": "1234",
+                "numero_registro": "1234",
                 "nome": "Renzo",
                 "senha": "1234",
                 "unidade": "Paraisopolis",
