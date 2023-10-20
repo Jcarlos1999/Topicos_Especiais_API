@@ -8,6 +8,8 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import jwt
 from pydantic import BaseModel
 
+from src.model.user import User
+
 class userLogin(BaseModel):
     numero_registro: str
     senha: str
@@ -15,6 +17,11 @@ class userLogin(BaseModel):
 def get_collection_funcionarios(request:Request):
     return request.app.database["funcionarios"]
 
+def signin(request, user: User = Body(...)):
+    user = jsonable_encoder(user)
+    new_user = get_collection_funcionarios(request).insert_one(user)
+    created_user = get_collection_funcionarios(request).find_one({"numero_registro": new_user.numero_registro})
+    return created_user
 
 def login(request: Request, user: userLogin = Body(...)):
     user = jsonable_encoder(user)
