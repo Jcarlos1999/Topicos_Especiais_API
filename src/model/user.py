@@ -17,6 +17,7 @@ class userLogin(BaseModel):
 class User(BaseModel):
     id: str = Field(default_factory=uuid.uuid4, alias="_id")
     numero_registro: str 
+    nome: str
     senha: str
     unidade: str
     planos: dict  
