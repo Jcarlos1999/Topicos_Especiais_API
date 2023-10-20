@@ -7,7 +7,7 @@ import src.rules.users as user_controller
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-@router.post("/signin", response_description="Create User")
+@router.post("/criar_usuario", response_description="Create User")
 async def signin(request: Request, user: User = Body(...)):
     try:
         return user_controller.criar_membros(request, user)
