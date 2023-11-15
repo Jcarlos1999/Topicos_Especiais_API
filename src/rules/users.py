@@ -1,9 +1,11 @@
+import json
 import os
+import bcrypt
 from fastapi.encoders import jsonable_encoder
 from datetime import datetime, date, timedelta
 from fastapi import Body, Request, HTTPException, status
+from flask import make_response
 import jwt
-from pymongo import MongoClient
 
 from src.model.user import User, userLogin
 
@@ -22,18 +24,22 @@ def criar_membros(request:Request, user: User = Body(...)):
     except Exception as err:
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Erro ao criar funcionario {err}")
 
-def login(request: Request, user: userLogin = Body(...)):
+def login(request: Request, body: userLogin = Body(...)):
     try:
-        user_login = get_collection_funcionarios(request).find_one({"numero_registro": user.numero_registro})
+        user_login = get_collection_funcionarios(request).find_one({"numero_registro": body.numero_registro})
         if user_login is None:
-            return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Funcionario com registro {user.numero_registro} nao existe")
+            return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Funcionario com registro {body.numero_registro} nao existe")
+        if bcrypt.checkpw(user_login.password, body.senha) is False:
+            return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Sua senha está incorreta")
         try:
             token = jwt.encode({"test": f"{datetime.now() + timedelta(days=3)}", "sub": f"{user_login}"}, f"{os.environ.get('SECRET')}")
+            set_cookie(request, user_login, token)
+            print(get_cookie(request, "user_info"))
         except jwt.ExpiredSignatureError:
             HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Autorização invalid, faça login novamente")
         
 
-        return HTTPException(status_code=status.HTTP_200_OK, detail=f"Login successful {user_login}")
+        return HTTPException(status_code=status.HTTP_200_OK, detail=f"Login successful {user_login} {token}")
     except Exception as err:
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Erro ao logar")
     
@@ -88,5 +94,28 @@ def vizualizar_membros(request:Request):
     except Exception as err:
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Erro ao procurar funcionario") 
             
+def set_cookie(request: Request, user = User, token = str):
+    user_data = {
+        "registro": user.numero_registro,
+        "nome": user.nome,
+        "unidade": user.unidade,
+        "ativo_unidade": user.unidade,
+        "planos": user.planos,
+        "admin": user.admin,
+        "permissoes": user.permissoes
+    }
 
+    user_json = json.dumps(token, user_data)
+    response = make_response('User data set in cookie')
+    response.set_cookie('user_info', user_json)
+    return response
+
+def get_cookie(request:Request, cookie_name):
+    user_json = request.cookies.get(cookie_name)
+    if user_json:
+        user_data = json.loads(user_json)
+        user = User(**user_data)
+        return user
+    else:
+        return 'User data not found in cookie'
  
