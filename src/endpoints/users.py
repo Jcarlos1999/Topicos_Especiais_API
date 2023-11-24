@@ -17,7 +17,7 @@ async def signin(request: Request, user: User = Body(...)):
 @router.post("/login", response_description="Login")
 async def login(request:Request, user:userLogin = Body(...)):
     try:
-          return user_controller.login(request, user)
+        return user_controller.login(request.json, user)
     except Exception as err:
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{err}")
     

@@ -1,3 +1,4 @@
+import bcrypt
 from fastapi import FastAPI
 from dotenv import dotenv_values
 from pymongo import MongoClient
@@ -11,8 +12,9 @@ app = FastAPI()
 
 @app.on_event("startup")
 def startup_mongo_client():
-    app.mongodb_client = MongoClient(config["URL_MONGO"])
-    app.database = app.mongodb_client[config["DBNAME"]]
+    salt = bcrypt.gensalt() 
+    app.mongodb_client = MongoClient(config["URL_MONGO_ATLAS"])
+    app.database = app.mongodb_client[config["DBNAME_ATLAS"]]
     print("Connect to mongodb !!!")
 
 @app.on_event("shutdown")
