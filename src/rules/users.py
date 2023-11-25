@@ -46,11 +46,11 @@ def login(request: Request, body: userLogin = Body(...)):
         try:
             token = jwt.encode({"test": f"{datetime.now() + timedelta(days=3)}", "sub": f"{user_login}"}, f"{os.environ.get('SECRET')}")
             # set_cookie(request, user_login, token)
-            return user_login, token
+            return HTTPException(status_code=status.HTTP_200_OK, detail=f"Login successful")
         except jwt.ExpiredSignatureError:
             HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Autorização invalid, faça login novamente")
         
-        return HTTPException(status_code=status.HTTP_200_OK, detail=f"Login successful {user_login} {token}")
+        return HTTPException(status_code=status.HTTP_200_OK, detail=f"Login feito com sucesso")
     except Exception as err:
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Erro ao logar aqui " + str(err))
     
@@ -123,4 +123,3 @@ def get_cookie(request:Request, cookie_name):
         return user
     else:
         return 'User data not found in cookie'
- 
