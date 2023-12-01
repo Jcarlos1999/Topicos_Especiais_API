@@ -9,7 +9,7 @@ import jwt
 
 from src.model.user import User, userLogin
 
-salt = bcrypt.gensalt(10)
+salt = bcrypt.gensalt(12)
 
 def get_collection_funcionarios(request:Request):
     return request.app.database["funcionarios"]
@@ -19,10 +19,6 @@ def criar_membros(request:Request, user: User = Body(...)):
         if get_collection_funcionarios(request).find_one({"numero_registro": user.numero_registro}):
             return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuario ja existe")
         else:
-            bytes = user.senha.encode("utf-8")
-            
-            hash = bcrypt.hashpw(bytes, salt)
-            user.senha = hash
             user = jsonable_encoder(user)
             get_collection_funcionarios(request).insert_one(user)
             return HTTPException(status_code=status.HTTP_201_CREATED, detail="Funcionario Criado")
@@ -35,20 +31,10 @@ def login(request: Request, body: userLogin = Body(...)):
         user_login = get_collection_funcionarios(request).find_one({"numero_registro": body.numero_registro})
         if user_login is None:
             return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Funcionario com registro {body.numero_registro} nao existe")
-        byte = body.senha.encode("utf-8")
-        hash = bcrypt.hashpw(byte, salt)
-        isEqual = bcrypt.checkpw(bytes(user_login.get("senha").encode("utf-8")), hash)
-        print(user_login.get("senha").encode("utf-8"))
-        print(hash)
-        print(isEqual)
-        if isEqual is not False:
+        print(user_login.get("senha"))
+        print(body.senha)
+        if user_login.get("senha") != body.senha:
             return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Sua senha está incorreta")
-        try:
-            token = jwt.encode({"test": f"{datetime.now() + timedelta(days=3)}", "sub": f"{user_login}"}, f"{os.environ.get('SECRET')}")
-            # set_cookie(request, user_login, token)
-            return HTTPException(status_code=status.HTTP_200_OK, detail=f"Login successful")
-        except jwt.ExpiredSignatureError:
-            HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Autorização invalid, faça login novamente")
         
         return HTTPException(status_code=status.HTTP_200_OK, detail=f"Login feito com sucesso")
     except Exception as err:
